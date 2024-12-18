@@ -67,5 +67,8 @@ def download_video(url, output_path="downloads"):
             download_tiktok_video(url, output_path)
         else:
             print("Платформа не поддерживается. Пожалуйста, введите ссылку с YouTube, Instagram или TikTok.")
+        return True
     except Exception as e:
         print(f"Произошла ошибка: {e}")
+
+    return False

@@ -62,7 +62,7 @@ async def upload_video(file: UploadFile):
     return {"file_id": file_id}
 
 @app.post("/overlay-video/")
-async def overlay_video_endpoint(file_id: str = Form(...)):
+async def overlay_video_endpoint(file_id: str = Form(...), language: str = Form(None)):
     """
     Обрабатывает видео (наложение `foreground`) и сохраняет результат.
     """
@@ -78,7 +78,7 @@ async def overlay_video_endpoint(file_id: str = Form(...)):
         return {"error": "Файл с таким file_id не найден"}
     
     # Вызываем функцию overlay_video из video_overlay.py
-    success = overlay_video(input_file, output_file)
+    success = overlay_video(input_file, output_file, language)
     
     if success:
         # Возвращаем файл как часть ответа, чтобы инициировать его скачивание
