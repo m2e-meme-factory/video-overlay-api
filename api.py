@@ -4,7 +4,12 @@ from uuid import uuid4
 import os
 from video_downloader import download_video
 from video_overlay import overlay_video
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
+
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
+executor = ThreadPoolExecutor()
 
 app = FastAPI()
 
@@ -37,13 +42,13 @@ async def upload_video_url(url: str = Form(...)):
     """
     file_id = str(uuid4())  # Генерируем уникальный ID
     output_file = os.path.join(DOWNLOADS_FOLDER, f"{file_id}.mp4")
-    download_video(url, DOWNLOADS_FOLDER)
+    filename = download_video(url, DOWNLOADS_FOLDER)
     
     # Переименовываем файл в UUID
-    downloaded_file = next((f for f in os.listdir(DOWNLOADS_FOLDER) if not f.startswith(file_id)), None)
-    if downloaded_file:
-        os.rename(os.path.join(DOWNLOADS_FOLDER, downloaded_file), output_file)
-        return {"file_id": file_id}
+    # downloaded_file = next((f for f in os.listdir(DOWNLOADS_FOLDER) if not f.startswith(file_id)), None)
+    if filename:
+        os.rename(os.path.join(DOWNLOADS_FOLDER, filename), output_file)
+        return {"file_id": filename}
     else:
         return {"error": "Не удалось скачать видео"}
 
@@ -64,24 +69,32 @@ async def upload_video(file: UploadFile):
 @app.post("/overlay-video/")
 async def overlay_video_endpoint(file_id: str = Form(...), language: str = Form(None)):
     """
-    Обрабатывает видео (наложение `foreground`) и сохраняет результат.
+    Выполняет наложение видео в отдельном потоке.
     """
-    input_file = os.path.join(DOWNLOADS_FOLDER, f"{file_id}.mp4")
-    output_file = os.path.join(OVERLAYS_FOLDER, f"{file_id}_overlayed.mp4")
+    input_file = os.path.join(DOWNLOADS_FOLDER, f"{file_id}")
+    output_file = os.path.join(OVERLAYS_FOLDER, f"overlay_{file_id}")
     
-    if os.path.exists(output_file):
-        print("send existing")
-        return StreamingResponse(open(output_file, "rb"), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={file_id}_overlayed.mp4"})
-    
-    print("process video")
     if not os.path.exists(input_file):
         return {"error": "Файл с таким file_id не найден"}
+
+    loop = asyncio.get_event_loop()
     
-    # Вызываем функцию overlay_video из video_overlay.py
-    success = overlay_video(input_file, output_file, language)
+    # Выполнение overlay_video в отдельном потоке
+    try:
+        await loop.run_in_executor(executor, overlay_video, input_file, output_file, language)
+    except Exception as e:
+        return {"error": f"Ошибка обработки видео: {str(e)}"}
+
+    return {"file_name": f"overlay_{file_id}"}
+
+@app.get("/download-video/{file_name}")
+async def download_video_endpoint(file_name: str):
+    """
+    Скачивает видео по имени файла из папки overlays.
+    """
+    file_path = os.path.join(OVERLAYS_FOLDER, file_name)
+    if not os.path.exists(file_path):
+        return {"error": "Файл не найден"}
     
-    if success:
-        # Возвращаем файл как часть ответа, чтобы инициировать его скачивание
-        return StreamingResponse(open(output_file, "rb"), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={file_id}_overlayed.mp4"})
-    else:
-        return {"error": "Ошибка обработки видео"}
+    # Возвращаем файл для скачивания
+    return FileResponse(file_path, media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={file_name}"})
