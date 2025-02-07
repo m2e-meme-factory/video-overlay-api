@@ -1,15 +1,27 @@
 import os
 from dataclasses import dataclass
+from enum import StrEnum
 
 WORKDIR = os.path.dirname(__file__)
 
-FOREGROUND_FILE_NAME = 'alpha.mov'
+FOREGROUND_EN_FILE_NAME = 'alpha.mov'
+
 DOWNLOADS_FOLDER = 'downloads'
 OVERLAYS_FOLDER = 'overlays'
 
 DOWNLOADS_PATH = os.path.join(WORKDIR, DOWNLOADS_FOLDER)
 OVERLAYS_PATH = os.path.join(WORKDIR, OVERLAYS_FOLDER)
-FOREGROUND_PATH = os.path.join(WORKDIR, FOREGROUND_FILE_NAME)
+
+FOREGROUND_EN_PATH = os.path.join(WORKDIR, FOREGROUND_EN_FILE_NAME)
+
+
+class SupportedOverlayLanguage(StrEnum):
+    EN = 'EN'
+
+
+FOREGROUND_PATH_BY_LANGUAGE = {
+    SupportedOverlayLanguage.EN: FOREGROUND_EN_PATH
+}
 
 
 @dataclass

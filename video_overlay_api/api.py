@@ -18,6 +18,7 @@ from constants import (
     MAX_VIDEO_SIZE,
     OVERLAYS_PATH,
     ORIGINS,
+    SupportedOverlayLanguage,
 )
 from exeptions import (
     BadRequestException,
@@ -124,6 +125,7 @@ async def upload_video(file: UploadFile) -> JSONResponse:
 @app.post('/overlay-video/')
 async def overlay_video_endpoint(
     file_name: str = Form(...),
+    language: SupportedOverlayLanguage = Form(SupportedOverlayLanguage.EN),
     overlay_type: Literal['ffmpeg', 'cv2'] = Form('ffmpeg'),
 ) -> JSONResponse:
     """
@@ -140,7 +142,7 @@ async def overlay_video_endpoint(
 
     # Выполнение overlay_video в отдельном потоке (cv2) или в подпроцессе (ffmpeg)
     try:
-        await overlay_by_type(input_file, output_file, overlay_type)
+        await overlay_by_type(input_file, output_file, language=language, overlay_type=overlay_type)
     except FfmpegOverlayError:
         logger.exception('Внутренняя ошика обработки видео')
         raise BadRequestException(f'Ошибка обработки видео')

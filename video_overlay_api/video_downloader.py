@@ -37,8 +37,6 @@ def download_video(url: str, best_quality: bool, video_orientation: Literal['por
         **video_format_opts,
         'outtmpl': f'{DOWNLOADS_PATH}/{file_name}',  # Шаблон имени файла
         'proxy': random.choice(PROXIES),
-        'verbose': True,
-        'debug_printtraffic': True,
     }
     if 'youtube.com' in url or 'youtu.be' in url:  # Если ссылка с YouTube
         platform = 'YouTube'
@@ -53,7 +51,6 @@ def download_video(url: str, best_quality: bool, video_orientation: Literal['por
 
     try:
         with YoutubeDLCorrectProxy(ydl_opts) as ydl:
-            ydl._ies['Youtube'] = ydl.get_info_extractor('Youtube')
             ydl.download([url])
         logger.info(f'Видео с {platform} успешно загружено в папку: {DOWNLOADS_PATH}')
         return file_name
