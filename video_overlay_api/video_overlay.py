@@ -3,7 +3,14 @@ import cv2
 import os
 import numpy as np
 
-from constants import FOREGROUND_PATH, MAX_VIDEO_DURATION_SEC, MAX_VIDEO_SIZE, PortraitLimit, LandscapeLimit
+from constants import (
+    FOREGROUND_PATH_BY_LANGUAGE,
+    MAX_VIDEO_DURATION_SEC,
+    MAX_VIDEO_SIZE,
+    PortraitLimit,
+    LandscapeLimit,
+    SupportedOverlayLanguage,
+)
 from concurrent.futures import ThreadPoolExecutor
 from exeptions import VideoCheckError, FfmpegOverlayError
 from utils import get_size_in_mb, logger
@@ -11,16 +18,16 @@ from utils import get_size_in_mb, logger
 executor = ThreadPoolExecutor()
 
 
-def overlay_with_cv2(input_file_path: str, output_file_path: str):
+def overlay_with_cv2(input_file_path: str, output_file_path: str, overlay_path: str):
     # Открываем фоновое видео
     background = cv2.VideoCapture(input_file_path)
     if not background.isOpened():
         raise ValueError(f'Не удалось открыть видео {input_file_path}')
 
     # Открываем видео с наложением
-    overlay = cv2.VideoCapture(FOREGROUND_PATH)
+    overlay = cv2.VideoCapture(overlay_path)
     if not overlay.isOpened():
-        raise ValueError(f'Не удалось открыть видео {FOREGROUND_PATH}')
+        raise ValueError(f'Не удалось открыть видео {overlay_path}')
 
     # Получаем параметры выходного видео
     width = int(background.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -101,14 +108,14 @@ def check_video_limitations(input_file_path: str):
     check_video_size(input_file_path)
 
 
-async def overlay_with_ffmpeg(input_file_path: str, output_file_path: str):
+async def overlay_with_ffmpeg(input_file_path: str, output_file_path: str, overlay_path: str):
     command = [
         'ffmpeg',
         '-loglevel', 'error',
         '-y',  # перезаписывает файл, если он уже существует
         '-i', input_file_path,  # фоновое видео
         '-stream_loop', '-1',  # бесконечно проигрываем видео с наложением
-        '-i', FOREGROUND_PATH,  # видео с наложением
+        '-i', overlay_path,  # видео с наложением
         '-filter_complex',
         '[1:v]lut=a=val*0.5[alpha]; '  # устанавливаем прозрачность видео с наложением (с альфа-каналом) 0.5
         # скейлим видео с наложением относительно основного видео:
@@ -138,12 +145,18 @@ async def overlay_with_ffmpeg(input_file_path: str, output_file_path: str):
     logger.info(f'Наложение видео выполнено успешно')
 
 
-async def overlay_by_type(input_file_path: str, output_file_path: str, overlay_type: str = 'ffmpeg'):
+async def overlay_by_type(
+    input_file_path: str,
+    output_file_path: str,
+    language: SupportedOverlayLanguage,
+    overlay_type: str = 'ffmpeg',
+):
     check_video_limitations(input_file_path)
+    overlay_path = FOREGROUND_PATH_BY_LANGUAGE[language]
     if overlay_type == 'ffmpeg':
-        await overlay_with_ffmpeg(input_file_path, output_file_path)
+        await overlay_with_ffmpeg(input_file_path, output_file_path, overlay_path)
     elif overlay_type == 'cv2':
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(executor, overlay_with_cv2, input_file_path, output_file_path)
+        await loop.run_in_executor(executor, overlay_with_cv2, input_file_path, output_file_path, overlay_path)
     else:
         raise ValueError(f'Неверный тип наложения {overlay_type}')
